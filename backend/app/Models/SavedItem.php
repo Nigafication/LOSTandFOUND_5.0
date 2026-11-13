@@ -1,0 +1,16 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class SavedItem extends Model
+{
+    protected $fillable = ['user_id', 'lost_found_item_id'];
+
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(LostFoundItem::class, 'lost_found_item_id');
+    }
+}
