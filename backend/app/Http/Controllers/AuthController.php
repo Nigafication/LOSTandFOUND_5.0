@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -42,14 +42,19 @@ class AuthController extends Controller
         return response()->json(['user' => $request->user()]);
     }
 
-    public function user(Request $request): JsonResponse
+    public function profile(Request $request): JsonResponse
     {
         return response()->json(['user' => $request->user()]);
     }
 
+    public function user(Request $request): JsonResponse
+    {
+        return $this->profile($request);
+    }
+
     public function logout(Request $request): JsonResponse
     {
-        Auth::logout();
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

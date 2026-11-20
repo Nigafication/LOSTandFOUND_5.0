@@ -4,6 +4,20 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+function xsrfToken() {
+  const cookie = document.cookie.split("; ").find((part) => part.startsWith("XSRF-TOKEN="));
+  return cookie ? decodeURIComponent(cookie.substring("XSRF-TOKEN=".length)) : "";
+}
+
+async function sanctumFetch(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  headers.set("X-Requested-With", "XMLHttpRequest");
+  const token = xsrfToken();
+  if (token) headers.set("X-XSRF-TOKEN", token);
+  return fetch(`${API_URL}${path}`, { ...init, headers, credentials: "include" });
+}
+
 type Item = {
   id: number;
   name: string;
@@ -55,7 +69,7 @@ export default function Home() {
       try {
         const [itemsResponse, userResponse] = await Promise.all([
           fetch(`${API_URL}/api/items`, { credentials: "include" }),
-          fetch(`${API_URL}/api/auth/user`, { credentials: "include" }),
+          sanctumFetch("/api/user"),
         ]);
         if (itemsResponse.ok) {
           const payload = await itemsResponse.json();
@@ -91,21 +105,30 @@ export default function Home() {
     }
     const isSaved = saved.includes(id);
     setSaved((current) => isSaved ? current.filter((itemId) => itemId !== id) : [...current, id]);
-    await fetch(`${API_URL}/api/items/${id}/save`, { method: isSaved ? "DELETE" : "POST", credentials: "include", headers: { Accept: "application/json" } });
+    await sanctumFetch(`/api/items/${id}/save`, { method: isSaved ? "DELETE" : "POST" });
   };
 
   const handleReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const response = await fetch(`${API_URL}/api/items`, {
+    const response = await sanctumFetch("/api/items", {
       method: "POST",
-      credentials: "include",
-      headers: { Accept: "application/json" },
       body: data,
     });
     if (response.ok) {
       const payload = await response.json();
-      setItems((current) => [payload.item, ...current]);
+      setItems((current) => [{
+        id: payload.item.id,
+        name: payload.item.title,
+        category: payload.item.category,
+        location: payload.item.location,
+        date: payload.item.created_at ? new Date(payload.item.created_at).toLocaleDateString() : "Just now",
+        age: "Just now",
+        status: "Recently found",
+        description: payload.item.description,
+        tone: payload.item.tone ?? "blue",
+        icon: payload.item.icon ?? "◌",
+      }, ...current]);
       setSubmitted(true);
     }
   };
@@ -120,10 +143,10 @@ export default function Home() {
     const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      await fetch(`${API_URL}/sanctum/csrf-cookie`, { credentials: "include" });
+      const response = await sanctumFetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
       if (!response.ok) throw new Error("Those credentials do not match our records.");

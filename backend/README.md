@@ -1,6 +1,6 @@
 # Campus Lost & Found backend
 
-This Laravel application provides the session-authenticated API for Campus Lost & Found. It owns users, lost-and-found listings, saved items, validation, and seeded development data.
+This Laravel application provides the Sanctum-authenticated API for Campus Lost & Found. It owns users, lost-and-found listings, saved items, validation, and seeded development data. The Next.js SPA uses Sanctum's stateful cookie flow.
 
 ## Run locally
 
@@ -20,10 +20,11 @@ The seed command creates `demo@campus.edu` with the password `password`. Change 
 
 ## API surface
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/user`
-- `POST /api/auth/logout`
+- `GET /sanctum/csrf-cookie` before browser login
+- `POST /api/register`
+- `POST /api/login`
+- `GET /api/user`
+- `POST /api/logout`
 - `GET /api/items?q=&category=`
 - `POST /api/items` for authenticated reports
 - `GET /api/saved-items` for authenticated saved items

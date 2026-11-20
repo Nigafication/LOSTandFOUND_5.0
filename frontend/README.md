@@ -15,7 +15,8 @@ Set `NEXT_PUBLIC_API_URL` to the URL where the Laravel backend is running. The d
 ## Main API calls
 
 - `GET /api/items` loads the live board.
-- `POST /api/auth/login` starts the session.
-- `GET /api/auth/user` restores the signed-in user.
+- `GET /sanctum/csrf-cookie` initializes the Sanctum CSRF cookie.
+- `POST /api/login` starts the Sanctum stateful session.
+- `GET /api/user` restores the signed-in user.
 - `POST /api/items` creates an authenticated item report.
 - `POST` or `DELETE /api/items/{id}/save` updates saved items.
