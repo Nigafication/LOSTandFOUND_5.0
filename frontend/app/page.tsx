@@ -32,6 +32,12 @@ type Item = {
   saved?: boolean;
 };
 
+type MatchSuggestion = {
+  item: Pick<Item, "id" | "name" | "category" | "location" | "description" | "tone" | "icon">;
+  score: number;
+  reasons: string[];
+};
+
 const fallbackItems: Item[] = [
   { id: 1, name: "Silver MacBook charger", category: "Electronics", location: "Powell Library · 2nd floor", date: "Today, 9:42 AM", age: "12 min ago", status: "Recently found", description: "USB-C power adapter with a small blue sticker on the side.", tone: "blue", icon: "⌁" },
   { id: 2, name: "Black canvas tote bag", category: "Bags", location: "Kerckhoff Coffee House", date: "Today, 8:10 AM", age: "2 hrs ago", status: "Found", description: "Has a yellow paperback, a water bottle, and a set of keys inside.", tone: "gold", icon: "▱" },
@@ -58,6 +64,7 @@ export default function Home() {
   const [saved, setSaved] = useState<number[]>([]);
   const [showReport, setShowReport] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [matchSuggestions, setMatchSuggestions] = useState<MatchSuggestion[]>([]);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState<string | null>(null);
   const [loginError, setLoginError] = useState("");
@@ -111,6 +118,13 @@ export default function Home() {
   const handleReport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const kind = String(data.get("kind") ?? "found");
+    const matchPayload = {
+      title: String(data.get("title") ?? ""),
+      category: String(data.get("category") ?? ""),
+      description: String(data.get("description") ?? ""),
+      location: String(data.get("location") ?? ""),
+    };
     const response = await sanctumFetch("/api/items", {
       method: "POST",
       body: data,
@@ -129,6 +143,21 @@ export default function Home() {
         tone: payload.item.tone ?? "blue",
         icon: payload.item.icon ?? "◌",
       }, ...current]);
+      if (kind === "lost") {
+        const matchesResponse = await sanctumFetch("/api/items/matches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(matchPayload),
+        });
+        if (matchesResponse.ok) {
+          const matchesPayload = await matchesResponse.json();
+          setMatchSuggestions(Array.isArray(matchesPayload.data) ? matchesPayload.data : []);
+        } else {
+          setMatchSuggestions([]);
+        }
+      } else {
+        setMatchSuggestions([]);
+      }
       setSubmitted(true);
     }
   };
@@ -191,7 +220,7 @@ export default function Home() {
 
       {showLogin && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowLogin(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="modal-close" onClick={() => setShowLogin(false)} aria-label="Close login form">×</button><p className="eyebrow">WELCOME BACK</p><h2 id="login-title">Sign in</h2><p className="modal-lede">Sign in to save items, report finds, and keep track of your requests.</p><form onSubmit={handleLogin}><label>Email address<input name="email" type="email" required placeholder="you@campus.edu" /></label><label>Password<input name="password" type="password" required placeholder="Enter your password" /></label>{loginError && <p className="form-error">{loginError}</p>}<button className="button button-primary form-submit" type="submit" disabled={loggingIn}>{loggingIn ? "Signing in…" : <>Sign in <Arrow /></>}</button></form><p className="modal-footnote">New here? Registration is available through the campus account portal.</p></div></div>}
 
-      {showReport && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowReport(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="report-title"><button className="modal-close" onClick={() => setShowReport(false)} aria-label="Close report form">×</button>{submitted ? <div className="success-state"><div className="success-mark">✓</div><p className="eyebrow">THANK YOU</p><h2>Your report is in.</h2><p>We&apos;ll review the details and add your item to the board when it&apos;s ready.</p><button className="button button-primary" onClick={() => { setSubmitted(false); setShowReport(false); }}>Back to the board <Arrow /></button></div> : <><p className="eyebrow">HELP IT FIND A HOME</p><h2 id="report-title">Report an item</h2><p className="modal-lede">Found something around campus? Give us the details and we&apos;ll take it from there.</p><form onSubmit={handleReport}><label>What did you find?<input name="title" required placeholder="Item name" /></label><label>Item type<select name="kind" required defaultValue="found"><option value="found">I found something</option><option value="lost">I lost something</option></select></label><label>Category<select name="category" required defaultValue=""><option value="" disabled>Select a category</option>{categories.slice(1).map((itemCategory) => <option key={itemCategory}>{itemCategory}</option>)}</select></label><label>Tell us about it<textarea name="description" required placeholder="Color, brand, distinctive details…" rows={4} /></label><label>Where did you find it?<input name="location" required placeholder="Building, room, or landmark" /></label><button className="button button-primary form-submit" type="submit">Submit report <Arrow /></button></form></>}</div></div>}
+      {showReport && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setShowReport(false)}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="report-title"><button className="modal-close" onClick={() => setShowReport(false)} aria-label="Close report form">×</button>{submitted ? <div className="success-state"><div className="success-mark">✓</div><p className="eyebrow">THANK YOU</p><h2>Your report is in.</h2><p>We&apos;ll review the details and add your item to the board when it&apos;s ready.</p>{matchSuggestions.length > 0 && <div className="match-panel"><p className="eyebrow">SMART MATCH SUGGESTIONS</p><p className="match-intro">These found items share details with your lost-item report. Please verify ownership with campus staff.</p>{matchSuggestions.map((match) => <article className="match-card" key={match.item.id}><div className={`match-icon ${match.item.tone}`}>{match.item.icon}</div><div><strong>{match.item.name}</strong><span>{match.score}% match · {match.item.location}</span><small>{match.reasons.join(" · ")}</small></div></article>)}</div>}{matchSuggestions.length === 0 && <p className="match-empty">No close matches yet. We&apos;ll keep the report on the board for future review.</p>}<button className="button button-primary" onClick={() => { setSubmitted(false); setShowReport(false); setMatchSuggestions([]); }}>Back to the board <Arrow /></button></div> : <><p className="eyebrow">HELP IT FIND A HOME</p><h2 id="report-title">Report an item</h2><p className="modal-lede">Found something around campus? Give us the details and we&apos;ll take it from there.</p><form onSubmit={handleReport}><label>What did you find?<input name="title" required placeholder="Item name" /></label><label>Item type<select name="kind" required defaultValue="found"><option value="found">I found something</option><option value="lost">I lost something</option></select></label><label>Category<select name="category" required defaultValue=""><option value="" disabled>Select a category</option>{categories.slice(1).map((itemCategory) => <option key={itemCategory}>{itemCategory}</option>)}</select></label><label>Tell us about it<textarea name="description" required placeholder="Color, brand, distinctive details…" rows={4} /></label><label>Where did you find it?<input name="location" required placeholder="Building, room, or landmark" /></label><button className="button button-primary form-submit" type="submit">Submit report <Arrow /></button></form></>}</div></div>}
     </main>
   );
 }

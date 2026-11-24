@@ -15,6 +15,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::post('/items', [LostFoundItemController::class, 'store']);
+    Route::post('/items/matches', [LostFoundItemController::class, 'matches']);
     Route::get('/saved-items', [LostFoundItemController::class, 'saved']);
     Route::post('/items/{item}/save', [LostFoundItemController::class, 'save']);
     Route::delete('/items/{item}/save', [LostFoundItemController::class, 'unsave']);
